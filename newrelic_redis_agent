@@ -24,8 +24,8 @@ runner.execute do |opts|
 
     class Agent < NewRelic::Plugin::Agent::Base
 
-      agent_guid "net.kenjij.newrelicplugin.redis"
-      agent_version "1.0.0"
+      agent_guid "net.kenjij.newrelic_redis_plugin"
+      agent_version "1.0.1"
       agent_config_options :instance_name, :url, :database
       agent_human_labels('Redis') do
         if instance_name == nil
