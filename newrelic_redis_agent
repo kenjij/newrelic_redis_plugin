@@ -1,0 +1,111 @@
+#! /usr/bin/env ruby
+
+require "rubygems"
+require "bundler/setup"
+require "dante"
+require "newrelic_plugin"
+require "redis"
+
+pid_path = File.expand_path("../run/newrelic_redis_agent.pid", __FILE__)
+log_path = File.expand_path("../log/newrelic_redis_agent.log", __FILE__)
+
+runner = Dante::Runner.new('newrelic_redis_agent', :pid_path  => pid_path, :log_path => log_path)
+runner.description = 'New Relic plugin agent for Redis'
+runner.with_options do |opts|
+  opts.on('-c', '--config FILE', String, 'Specify configuration file') do |config|
+    options[:config_path] = config
+  end
+end
+
+runner.execute do |opts|
+  $redisplugin_config_path = opts[:config_path]
+
+  module RedisAgent
+
+    class Agent < NewRelic::Plugin::Agent::Base
+
+      agent_guid "net.kenjij.newrelicplugin.redis"
+      agent_version "1.0.0"
+      agent_config_options :instance_name, :url, :database
+      agent_human_labels('Redis') do
+        if instance_name == nil
+          host = Socket.gethostname().sub(/\..*/, '')
+          uri = URI.parse("#{url}")
+          "#{host}:#{uri.port}"
+        else
+          "#{instance_name}"
+        end
+      end
+
+      def setup_metrics
+        @redis = Redis.new(:url => url)
+        @last_values = {}
+        @redis_info = nil
+      end
+
+      def poll_cycle
+        begin
+          @redis_info = @redis.info
+          info = @redis_info
+        rescue Exception => e
+          puts e.message
+          return nil
+        end
+        report_metric "Memory/Used", "bytes", info['used_memory'].to_i
+        report_metric "Memory/RSS", "bytes", info['used_memory_rss'].to_i
+        report_metric "Memory/Lua", "bytes", info['used_memory_lua'].to_i
+        report_metric "Memory/Peak", "bytes", info['used_memory_peak'].to_i
+        report_metric "CPU/System", "seconds", info['used_cpu_sys'].to_i
+        report_metric "CPU/User", "seconds", info['used_cpu_sys'].to_i
+        report_metric "CPU/Child System", "seconds", info['used_cpu_sys_children'].to_i
+        report_metric "CPU/Child User", "seconds", info['used_cpu_sys_children'].to_i
+        report_metric "RDB Unsaved Changes", "changes", info['rdb_changes_since_last_save'].to_i
+        report_metric "RDB Save Time", "seconds", info['rdb_last_bgsave_time_sec'].to_i
+        report_metric "Connection/Clients", "connections", info['connected_clients'].to_i
+        report_metric "Connection/Slaves", "connections", info['connected_slaves'].to_i
+        report_metric "ConnectionRate/Received", "connections", last_metric('total_connections_received')
+        report_metric "ConnectionRate/Rejected", "connections", last_metric('rejected_connections')
+        report_metric "Commands Processed", "commands", last_metric('total_commands_processed')
+        report_metric "KeyspaceRate/Hits", "keys", last_metric('keyspace_hits')
+        report_metric "KeyspaceRate/Misses", "keys", last_metric('keyspace_misses')
+        report_metric "Expired Keys", "keys", last_metric('expired_keys')
+        report_metric "Evicted Keys", "keys", last_metric('evicted_keys')
+        dbstat = info[database] if database
+        if dbstat
+          begin
+            h = Hash[dbstat.split(/,/).each.collect{|s|s.split('=')}]
+            report_metric "Database/Total Keys", "keys", h['keys'].to_i
+            report_metric "Database/Expiring Keys", "keys", h['expires'].to_i
+          rescue Exception => e
+            puts e.message
+          end
+        end
+        @redis_info = nil
+      end
+
+      private
+
+      def last_metric(key)
+        return nil if @redis_info.nil? || @redis_info[key].nil?
+        current_value = @redis_info[key].to_i
+        if @last_values[key].nil?
+          metric = 0
+        else
+          metric = current_value - @last_values[key]
+          metric = 0 if metric < 0
+        end
+        @last_values[key] = current_value
+        return metric
+      end
+
+    end
+
+    if $redisplugin_config_path
+      NewRelic::Plugin::Config.config_file = $redisplugin_config_path
+    end
+    NewRelic::Plugin::Setup.install_agent :redis, RedisAgent
+    NewRelic::Plugin::Run.setup_and_run
+
+  end
+
+end
