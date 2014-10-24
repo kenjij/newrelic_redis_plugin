@@ -6,10 +6,7 @@ require "dante"
 require "newrelic_plugin"
 require "redis"
 
-pid_path = File.expand_path("../run/newrelic_redis_agent.pid", __FILE__)
-log_path = File.expand_path("../log/newrelic_redis_agent.log", __FILE__)
-
-runner = Dante::Runner.new('newrelic_redis_agent', :pid_path  => pid_path, :log_path => log_path)
+runner = Dante::Runner.new('newrelic_redis_agent')
 runner.description = 'New Relic plugin agent for Redis'
 runner.with_options do |opts|
   opts.on('-c', '--config FILE', String, 'Specify configuration file') do |config|
