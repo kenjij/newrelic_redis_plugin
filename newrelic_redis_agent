@@ -26,7 +26,7 @@ runner.execute do |opts|
 
       agent_guid "net.kenjij.newrelic_redis_plugin"
       agent_version "1.0.1"
-      agent_config_options :instance_name, :url, :database
+      agent_config_options :instance_name, :url, :database, :password
       agent_human_labels('Redis') do
         if instance_name == nil
           host = Socket.gethostname().sub(/\..*/, '')
@@ -38,7 +38,12 @@ runner.execute do |opts|
       end
 
       def setup_metrics
-        @redis = Redis.new(:url => url)
+        # Not sure if this is strictly necessary with redis, didn't have time to test
+        if password == nil
+          @redis = Redis.new(:url => url)
+        else
+          @redis = Redis.new(:url => url, :password => password)
+        end
         @last_values = {}
         @redis_info = nil
       end
