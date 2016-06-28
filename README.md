@@ -41,6 +41,18 @@ agents:
     database: db0
 ```
 
+## Chef Cookbook Available
+
+A [Chef cookbook](https://supermarket.chef.io/cookbooks/newrelic_redis_plugin) is available for this plugin on Chef Supermarket.
+
+The chef recipes build upon this plugin and add the ability to monitor multiple Redis instances
+as well as providing init.d scripts to provide managed system services.
+
+Cookbook: [https://supermarket.chef.io/cookbooks/newrelic_redis_plugin](https://supermarket.chef.io/cookbooks/newrelic_redis_plugin)
+
+Source: [https://github.com/ECHOInternational/chef-newrelic_redis_plugin](https://github.com/ECHOInternational/chef-newrelic_redis_plugin)
+
+
 ## License
 
 [MIT](http://opensource.org/licenses/MIT)
